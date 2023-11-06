@@ -1,17 +1,26 @@
+use std::{env, fs, io, mem};
 use std::fs::File;
 use std::io::BufRead;
 use std::path::Path;
-use std::{env, fs, io, mem};
+
+use chrono::NaiveDateTime;
+use regex::Regex;
 
 fn main() {
-    println!("Hello, world!");
+
+    let strf_datetime = String::from("[%D %T,%3f]");
+    let re_datetime =
+        Regex::new(r"^\[\d{1,4}[\d/:, ]+\d{1,3}\]").expect("Your regex can't be compiled");
+
+    // let flag = re_datetime.find("[11/04/23 10:00:00,001] multi1").unwrap().as_str();
+    // println!("{:?}", NaiveDateTime::parse_from_str(flag, &strf_datetime));
     let args: Vec<String> = env::args().collect();
 
     if args.len() == 1 {
         println!("Provide path to process");
         return;
     }
-    let script_name: &str = &args[0];
+    // let script_name: &str = &args[0];
 
     let logs_path = Path::new(&args[1]);
     if !logs_path.exists() {
@@ -37,13 +46,14 @@ fn main() {
         let lines = io::BufReader::new(file).lines();
 
         let logs = lines
-            .chain(Some(Ok(String::from("[")))) // TODO: use some flag value
+            .chain(Some(Ok(String::from("[end]")))) // TODO: use some flag value
             .scan(Vec::new(), |v, l| {
                 match v.last() {
                     None => {
                         let s: String = l.unwrap();
-                        if s.starts_with("[") {
+                        if re_datetime.is_match(&s) {
                             // TODO: use regex from args
+
                             v.push(s);
                             Some(None)
                         } else {
@@ -52,8 +62,9 @@ fn main() {
                     }
                     Some(_) => {
                         let s: String = l.unwrap();
-                        if s.starts_with("[") {
+                        if s == String::from("[end]") || re_datetime.is_match(&s) {
                             // TODO: use regex from args
+
                             // println!("{:?}", v);
                             Some(Some(mem::replace(v, vec![s])))
                         } else {
@@ -63,47 +74,43 @@ fn main() {
                     }
                 }
             })
-            .filter(|s| {
-                // TODO: filter empty strings
-                match s {
-                    None => false,
-                    Some(_) => true,
-                }
-            })
             .flatten();
 
         logs_iterators.push(logs);
     }
 
     let mut current_logs: Vec<Vec<String>> = vec![];
-    let mut current_timestamps: Vec<String> = vec![];
+    let mut current_timestamps: Vec<i64> = vec![];
 
     for it in logs_iterators.iter_mut() {
-        match it.next() {
-            None => {
-                continue;
-            }
-            Some(log) => {
-                // println!("{:?}", &log);
-                let timestamp = log.first().unwrap().split("]").next().unwrap().to_string();
-                current_timestamps.push(timestamp);
-                current_logs.push(log);
-            }
-        }
+        let log = it.next().expect("Can't find logs in some file");
+
+        // println!("{:?}", &log);
+        let timestamp = NaiveDateTime::parse_from_str(
+            re_datetime.find(&log.first().unwrap()).unwrap().as_str(),
+            &strf_datetime,
+        )
+            .unwrap()
+            .timestamp_millis();
+        current_timestamps.push(timestamp);
+        current_logs.push(log);
     }
 
     while !logs_iterators.is_empty() {
+        // println!("{:?}", &logs_iterators.len());
+        // println!("{:?}", &current_timestamps);
+        // println!("{:?}", &current_logs);
+
         let max_val = current_timestamps.iter().min().unwrap();
         let max_i = current_timestamps
             .iter()
             .position(|s| s == max_val)
             .unwrap();
 
-        // dbg!(&current_timestamps);
-        // dbg!(&current_logs);
 
         let max_log = current_logs.get(max_i).unwrap();
         println!("{:?}", &max_log);
+
 
         let it = logs_iterators.get_mut(max_i).unwrap();
         match it.next() {
@@ -113,13 +120,17 @@ fn main() {
                 let _ = logs_iterators.remove(max_i);
             }
             Some(log) => {
-                let timestamp = log.first().unwrap().split("]").next().unwrap().to_string();
+                let timestamp = NaiveDateTime::parse_from_str(
+                    re_datetime.find(&log.first().unwrap()).unwrap().as_str(),
+                    &strf_datetime,
+                )
+                    .unwrap()
+                    .timestamp_millis();
                 current_timestamps[max_i] = timestamp;
                 current_logs[max_i] = log;
             }
         }
     }
-    dbg!(&script_name);
 }
 
 // fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
