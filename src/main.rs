@@ -1,28 +1,64 @@
-use std::{env, fs, io, mem};
+use std::{fs, io, mem};
 use std::fs::File;
 use std::io::BufRead;
-use std::path::Path;
+use std::path::PathBuf;
 
 use chrono::NaiveDateTime;
-use regex::Regex;
+use clap::Parser;
+use glob::Pattern;
+use regex::{escape, Regex};
+
+#[derive(Parser)]
+#[command(author, version, about)]
+#[command(long_about = "Merges log fields by its timestamps")]
+struct Cli {
+    /// Directory with log files
+    dir: PathBuf,
+    /// Regular expression to find timestamps and detect multiline logs
+    ///
+    /// Example: "^\[\d{1,4}[\d/:, ]+\d{1,3}\]"
+    #[arg(long)]
+    re_time: Option<String>,
+    /// strftime pattern to parse timestamps found by --re-time
+    ///
+    /// Example: "[%D %T,%3f]"
+    #[arg(long)]
+    strftime: Option<String>,
+
+    /// Regular expression to filter log files in dir
+    #[arg(short, long)]
+    filter: Option<String>,
+
+}
 
 fn main() {
+    let cli = Cli::parse();
 
-    let strf_datetime = String::from("[%D %T,%3f]");
-    let re_datetime =
-        Regex::new(r"^\[\d{1,4}[\d/:, ]+\d{1,3}\]").expect("Your regex can't be compiled");
+    let logs_path = cli.dir;
 
-    // let flag = re_datetime.find("[11/04/23 10:00:00,001] multi1").unwrap().as_str();
-    // println!("{:?}", NaiveDateTime::parse_from_str(flag, &strf_datetime));
-    let args: Vec<String> = env::args().collect();
+    let strftime = match cli.strftime {
+        Some(strftime) => {
+            println!("Provided strftime: {strftime}");
+            strftime
+        }
+        None => {
+            println!("Use strftime from last completed run");
+            String::from("[%D %T,%3f]")
+        }
+    };
 
-    if args.len() == 1 {
-        println!("Provide path to process");
-        return;
-    }
-    // let script_name: &str = &args[0];
+    let re_time = match cli.re_time {
+        Some(re_time_str) => {
+            println!("Provided time regexp: {re_time_str}");
+            Regex::new(escape(&re_time_str).as_str()).expect("Your previous regex can't be compiled")
+        }
+        None => {
+            println!("Use time regexp from last completed run");
+            Regex::new(r"^\[\d{1,4}[\d/:, ]+\d{1,3}]").expect("Your regex can't be compiled")
+        }
+    };
 
-    let logs_path = Path::new(&args[1]);
+
     if !logs_path.exists() {
         println!("Provided path doesn't exists");
         return;
@@ -32,12 +68,29 @@ fn main() {
         println!("Provided path must exist");
         return;
     }
-    dbg!(&logs_path);
+
     let logs_path = fs::canonicalize(logs_path).expect("Can't absolutize path");
+
+
+    let filter = match cli.filter {
+        None => { Pattern::new("*").expect("Invalid filter glob pattern") },
+        Some(pattern) => { Pattern::new(&pattern).expect("Invalid filter glob pattern")},
+    };
+
+    let logs_paths = fs::read_dir(&logs_path)
+        .expect("Can't iterate over dir")
+        .filter(| path | {
+            match path {
+                Err(E) => {
+                    panic!("Can't iteratre over dir");
+                },
+                Ok(path) => { filter.matches_path(&path.path()) },
+            }
+        });
 
     let mut logs_iterators = vec![];
 
-    for dir_entry in fs::read_dir(&logs_path).unwrap() {
+    for dir_entry in  logs_paths {
         let dir_entry = dir_entry.unwrap();
         let path = dir_entry.path();
         dbg!(&path);
@@ -51,7 +104,7 @@ fn main() {
                 match v.last() {
                     None => {
                         let s: String = l.unwrap();
-                        if re_datetime.is_match(&s) {
+                        if re_time.is_match(&s) {
                             // TODO: use regex from args
 
                             v.push(s);
@@ -62,7 +115,7 @@ fn main() {
                     }
                     Some(_) => {
                         let s: String = l.unwrap();
-                        if s == String::from("[end]") || re_datetime.is_match(&s) {
+                        if s == String::from("[end]") || re_time.is_match(&s) {
                             // TODO: use regex from args
 
                             // println!("{:?}", v);
@@ -87,8 +140,8 @@ fn main() {
 
         // println!("{:?}", &log);
         let timestamp = NaiveDateTime::parse_from_str(
-            re_datetime.find(&log.first().unwrap()).unwrap().as_str(),
-            &strf_datetime,
+            re_time.find(&log.first().unwrap()).unwrap().as_str(),
+            &strftime,
         )
             .unwrap()
             .timestamp_millis();
@@ -121,8 +174,8 @@ fn main() {
             }
             Some(log) => {
                 let timestamp = NaiveDateTime::parse_from_str(
-                    re_datetime.find(&log.first().unwrap()).unwrap().as_str(),
-                    &strf_datetime,
+                    re_time.find(&log.first().unwrap()).unwrap().as_str(),
+                    &strftime,
                 )
                     .unwrap()
                     .timestamp_millis();
