@@ -12,22 +12,25 @@ use regex::{escape, Regex};
 #[command(author, version, about)]
 #[command(long_about = "Merges log fields by its timestamps")]
 struct Cli {
+
     /// Directory with log files
     dir: PathBuf,
+
     /// Regular expression to find timestamps and detect multiline logs
     ///
     /// Example: "^\[\d{1,4}[\d/:, ]+\d{1,3}\]"
-    #[arg(long)]
+    #[arg(long, value_name = "REGEXP")]
     re_time: Option<String>,
+
     /// strftime pattern to parse timestamps found by --re-time
     ///
     /// Example: "[%D %T,%3f]"
-    #[arg(long)]
+    #[arg(long, value_name = "STRFTIME")]
     strftime: Option<String>,
 
     /// Regular expression to filter log files in dir
-    #[arg(short, long)]
-    filter: Option<String>,
+    #[arg(short, long, required = false, value_name = "GLOB", default_value = "*")]
+    filter: String,
 
 }
 
@@ -72,17 +75,19 @@ fn main() {
     let logs_path = fs::canonicalize(logs_path).expect("Can't absolutize path");
 
 
-    let filter = match cli.filter {
-        None => { Pattern::new("*").expect("Invalid filter glob pattern") },
-        Some(pattern) => { Pattern::new(&pattern).expect("Invalid filter glob pattern")},
-    };
+    if !logs_path.join("merged").exists() {
+        fs::create_dir(logs_path.join("merged")).expect("Can't create 'merged' dir");
+    }
+
+
+    let filter = Pattern::new(&cli.filter).expect("Invalid filter glob pattern");
 
     let logs_paths = fs::read_dir(&logs_path)
         .expect("Can't iterate over dir")
         .filter(| path | {
             match path {
                 Err(E) => {
-                    panic!("Can't iteratre over dir");
+                    panic!("Can't iterate over dir");
                 },
                 Ok(path) => { filter.matches_path(&path.path()) },
             }
