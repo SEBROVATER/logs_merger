@@ -113,7 +113,7 @@ fn main() {
         }
         None => {
             println!("Use strftime from last completed run");
-            String::from("[%D %T,%3f]")
+            String::from("[%F %T,%3f]")
         }
     };
 
@@ -124,7 +124,7 @@ fn main() {
         }
         None => {
             println!("Use time regexp from last completed run");
-            Regex::new(r"^\[\d{1,4}[\d/:, ]+\d{1,3}]").expect("Your regex can't be compiled")
+            Regex::new(r"^\[[\d\- :,]+\]").expect("Your regex can't be compiled")
         }
     };
 
@@ -135,7 +135,7 @@ fn main() {
     }
 
     if !logs_path.is_dir() {
-        println!("Provided path must exist");
+        println!("Provided path must be a folder");
         return;
     }
 
@@ -153,7 +153,7 @@ fn main() {
                 Err(_) => {
                     panic!("Can't iterate over dir");
                 }
-                Ok(path) => { filter.matches_path(&path.path()) }
+                Ok(path) => { !&path.path().is_dir() && filter.matches_path(&path.path()) }
             }
         }).map(|dir_entry| dir_entry.unwrap().path()).collect();
 
