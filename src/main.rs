@@ -1,8 +1,10 @@
-use std::{fs, io, mem};
+mod strings_similarity;
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, LineWriter, Write};
 use std::path::PathBuf;
+use std::{fs, io, mem};
 
 use chrono::NaiveDateTime;
 use clap::Parser;
@@ -26,10 +28,7 @@ fn get_common_substring(str1: &str, str2: &str) -> String {
     }
 
     let mut j2len: HashMap<usize, usize> = HashMap::new();
-    for (i, item) in first_sequence
-        .iter()
-        .enumerate()
-    {
+    for (i, item) in first_sequence.iter().enumerate() {
         let mut new_j2len: HashMap<usize, usize> = HashMap::new();
         if let Some(indexes) = second_sequence_elements.get(item) {
             for j in indexes {
@@ -53,8 +52,9 @@ fn get_common_substring(str1: &str, str2: &str) -> String {
     }
 
     for _ in 0..2 {
-        while best_i > 0 && best_j > 0 &&
-            first_sequence.get(best_i - 1) == second_sequence.get(best_j - 1)
+        while best_i > 0
+            && best_j > 0
+            && first_sequence.get(best_i - 1) == second_sequence.get(best_j - 1)
         {
             best_i -= 1;
             best_j -= 1;
@@ -71,7 +71,6 @@ fn get_common_substring(str1: &str, str2: &str) -> String {
     let res = String::from_iter(&first_sequence[best_i..(best_i + best_size)]);
     res
 }
-
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -97,9 +96,14 @@ struct Cli {
     strftime: Option<String>,
 
     /// Regular expression to filter log files in dir
-    #[arg(short, long, required = false, value_name = "GLOB", default_value = "*")]
+    #[arg(
+        short,
+        long,
+        required = false,
+        value_name = "GLOB",
+        default_value = "*"
+    )]
     filter: String,
-
 }
 
 fn main() {
@@ -120,14 +124,14 @@ fn main() {
     let re_time = match cli.re_time {
         Some(re_time_str) => {
             println!("Provided time regexp: {re_time_str}");
-            Regex::new(escape(&re_time_str).as_str()).expect("Your previous regex can't be compiled")
+            Regex::new(escape(&re_time_str).as_str())
+                .expect("Your previous regex can't be compiled")
         }
         None => {
             println!("Use time regexp from last completed run");
             Regex::new(r"^\[[\d\- :,]+\]").expect("Your regex can't be compiled")
         }
     };
-
 
     if !logs_path.exists() {
         println!("Provided path doesn't exists");
@@ -141,22 +145,18 @@ fn main() {
 
     let logs_path = fs::canonicalize(logs_path).expect("Can't absolutize path");
 
-
-
-
     let filter = Pattern::new(&cli.filter).expect("Invalid filter glob pattern");
 
     let logs_paths: Vec<PathBuf> = fs::read_dir(&logs_path)
         .expect("Can't iterate over dir")
-        .filter(|path| {
-            match path {
-                Err(_) => {
-                    panic!("Can't iterate over dir");
-                }
-                Ok(path) => { !&path.path().is_dir() && filter.matches_path(&path.path()) }
+        .filter(|path| match path {
+            Err(_) => {
+                panic!("Can't iterate over dir");
             }
-        }).map(|dir_entry| dir_entry.unwrap().path()).collect();
-
+            Ok(path) => !&path.path().is_dir() && filter.matches_path(&path.path()),
+        })
+        .map(|dir_entry| dir_entry.unwrap().path())
+        .collect();
 
     let file_name = match cli.output {
         None => {
@@ -165,14 +165,20 @@ fn main() {
                 Some(path) => path,
             };
 
-            logs_paths.iter().map(|path| {
-                path
-                    .file_name().unwrap()
-                    .to_str().unwrap()
-            })
-                .fold(first_path.file_name().unwrap().to_str().unwrap().to_string(),
-                      |path1, path2| get_common_substring(path1.as_str(), path2))
-                .trim_start_matches('_').to_string()
+            logs_paths
+                .iter()
+                .map(|path| path.file_name().unwrap().to_str().unwrap())
+                .fold(
+                    first_path
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                    |path1, path2| get_common_substring(path1.as_str(), path2),
+                )
+                .trim_start_matches('_')
+                .to_string()
         }
         Some(file_name) => {
             if file_name.starts_with("./") || file_name.starts_with("/") {
@@ -244,8 +250,8 @@ fn main() {
             re_time.find(&log.first().unwrap()).unwrap().as_str(),
             &strftime,
         )
-            .unwrap()
-            .timestamp_millis();
+        .unwrap()
+        .timestamp_millis();
         current_timestamps.push(timestamp);
         current_logs.push(log);
     }
@@ -261,16 +267,16 @@ fn main() {
             .position(|s| s == max_val)
             .unwrap();
 
-
         let max_log = current_logs.get(max_i).unwrap();
         println!("{:?}", &max_log);
         for log in max_log.iter() {
             if log.is_empty() {
-                continue
+                continue;
             };
-            file.write_all(log.as_bytes()).expect("Can't write line to file");
+            file.write_all(log.as_bytes())
+                .expect("Can't write line to file");
             file.write_all(b"\n").expect("Can't write line to file");
-        };
+        }
 
         let it = logs_iterators.get_mut(max_i).unwrap();
         match it.next() {
@@ -284,8 +290,8 @@ fn main() {
                     re_time.find(&log.first().unwrap()).unwrap().as_str(),
                     &strftime,
                 )
-                    .unwrap()
-                    .timestamp_millis();
+                .unwrap()
+                .timestamp_millis();
                 current_timestamps[max_i] = timestamp;
                 current_logs[max_i] = log;
             }
