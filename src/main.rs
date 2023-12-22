@@ -1,153 +1,44 @@
-mod strings_similarity;
-
-use std::collections::HashMap;
+use std::{fs, io, mem};
 use std::fs::File;
 use std::io::{BufRead, LineWriter, Write};
 use std::path::PathBuf;
-use std::{fs, io, mem};
 
 use chrono::NaiveDateTime;
 use clap::Parser;
-use glob::Pattern;
-use regex::{escape, Regex};
 
-fn get_common_substring(str1: &str, str2: &str) -> String {
-    let first_sequence: Vec<char> = str1.chars().collect();
-    let second_sequence: Vec<char> = str2.chars().collect();
+use cli::Cli;
+use strings_similarity::get_common_substring;
 
-    let mut best_i: usize = 0;
-    let mut best_j: usize = 0;
-    let mut best_size: usize = 0;
+use crate::preparations::{get_valid_dir, get_valid_glob_filter, get_valid_re_time, get_valid_strftime};
 
-    let mut second_sequence_elements = HashMap::new();
-    for (i, item) in second_sequence.iter().enumerate() {
-        let counter = second_sequence_elements
-            .entry(item)
-            .or_insert_with(Vec::new);
-        counter.push(i);
-    }
-
-    let mut j2len: HashMap<usize, usize> = HashMap::new();
-    for (i, item) in first_sequence.iter().enumerate() {
-        let mut new_j2len: HashMap<usize, usize> = HashMap::new();
-        if let Some(indexes) = second_sequence_elements.get(item) {
-            for j in indexes {
-                let j = *j;
-                let mut size = 0;
-                if j > 0 {
-                    if let Some(k) = j2len.get(&(j - 1)) {
-                        size = *k;
-                    }
-                }
-                size += 1;
-                new_j2len.insert(j, size);
-                if size > best_size {
-                    best_i = i + 1 - size;
-                    best_j = j + 1 - size;
-                    best_size = size;
-                }
-            }
-        }
-        j2len = new_j2len;
-    }
-
-    for _ in 0..2 {
-        while best_i > 0
-            && best_j > 0
-            && first_sequence.get(best_i - 1) == second_sequence.get(best_j - 1)
-        {
-            best_i -= 1;
-            best_j -= 1;
-            best_size += 1;
-        }
-        while best_i + best_size < first_sequence.len()
-            && best_j + best_size < second_sequence.len()
-            && first_sequence.get(best_i + best_size) == second_sequence.get(best_j + best_size)
-        {
-            best_size += 1;
-        }
-    }
-
-    let res = String::from_iter(&first_sequence[best_i..(best_i + best_size)]);
-    res
-}
-
-#[derive(Parser)]
-#[command(author, version, about)]
-#[command(long_about = "Merges log fields by its timestamps")]
-struct Cli {
-    /// Directory with log files
-    dir: PathBuf,
-
-    /// Name for generated file
-    #[arg(long, short, value_name = "OUTPUT")]
-    output: Option<String>,
-
-    /// Regular expression to find timestamps and detect multiline logs
-    ///
-    /// Example: "^\[\d{1,4}[\d/:, ]+\d{1,3}\]"
-    #[arg(long, value_name = "REGEXP")]
-    re_time: Option<String>,
-
-    /// strftime pattern to parse timestamps found by --re-time
-    ///
-    /// Example: "[%D %T,%3f]"
-    #[arg(long, value_name = "STRFTIME")]
-    strftime: Option<String>,
-
-    /// Regular expression to filter log files in dir
-    #[arg(
-        short,
-        long,
-        required = false,
-        value_name = "GLOB",
-        default_value = "*"
-    )]
-    filter: String,
-}
+mod cli;
+mod strings_similarity;
+mod preparations;
 
 fn main() {
     let cli = Cli::parse();
-    let logs_path = cli.dir;
 
-    let strftime = match cli.strftime {
-        Some(strftime) => {
-            println!("Provided strftime: {strftime}");
-            strftime
-        }
-        None => {
-            println!("Use strftime from last completed run");
-            String::from("[%F %T,%3f]")
-        }
-    };
+    let strftime = get_valid_strftime(&cli.strftime);
 
-    let re_time = match cli.re_time {
-        Some(re_time_str) => {
-            println!("Provided time regexp: {re_time_str}");
-            Regex::new(escape(&re_time_str).as_str())
-                .expect("Your previous regex can't be compiled")
-        }
-        None => {
-            println!("Use time regexp from last completed run");
-            Regex::new(r"^\[[\d\- :,]+\]").expect("Your regex can't be compiled")
+    let re_time = get_valid_re_time(&cli.re_time);
+
+    let logs_dir = match get_valid_dir(&cli.dir) {
+        Ok(dir) => dir,
+        Err(err) => {
+            println!("{err}");
+            return;
         }
     };
 
-    if !logs_path.exists() {
-        println!("Provided path doesn't exists");
-        return;
-    }
+    let filter = match get_valid_glob_filter(&cli.filter) {
+        Ok(glob_pattern) => glob_pattern,
+        Err(_) => {
+            println!("Can't compile glob pattern");
+            return;
+        }
+    };
 
-    if !logs_path.is_dir() {
-        println!("Provided path must be a folder");
-        return;
-    }
-
-    let logs_path = fs::canonicalize(logs_path).expect("Can't absolutize path");
-
-    let filter = Pattern::new(&cli.filter).expect("Invalid filter glob pattern");
-
-    let logs_paths: Vec<PathBuf> = fs::read_dir(&logs_path)
+    let logs_paths: Vec<PathBuf> = fs::read_dir(&logs_dir)
         .expect("Can't iterate over dir")
         .filter(|path| match path {
             Err(_) => {
@@ -189,8 +80,8 @@ fn main() {
         }
     };
     dbg!(&file_name);
-    if !logs_path.join("merged").exists() {
-        fs::create_dir(logs_path.join("merged")).expect("Can't create 'merged' dir");
+    if !logs_dir.join("merged").exists() {
+        fs::create_dir(logs_dir.join("merged")).expect("Can't create 'merged' dir");
     }
 
     let mut logs_iterators = vec![];
@@ -234,7 +125,7 @@ fn main() {
         logs_iterators.push(logs);
     }
 
-    let output_path = logs_path.join("merged").join(file_name);
+    let output_path = logs_dir.join("merged").join(file_name);
 
     let file = File::create(output_path).expect("Can't create file to write");
     let mut file = LineWriter::new(file);
@@ -250,8 +141,8 @@ fn main() {
             re_time.find(&log.first().unwrap()).unwrap().as_str(),
             &strftime,
         )
-        .unwrap()
-        .timestamp_millis();
+            .unwrap()
+            .timestamp_millis();
         current_timestamps.push(timestamp);
         current_logs.push(log);
     }
@@ -290,8 +181,8 @@ fn main() {
                     re_time.find(&log.first().unwrap()).unwrap().as_str(),
                     &strftime,
                 )
-                .unwrap()
-                .timestamp_millis();
+                    .unwrap()
+                    .timestamp_millis();
                 current_timestamps[max_i] = timestamp;
                 current_logs[max_i] = log;
             }
