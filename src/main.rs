@@ -1,4 +1,4 @@
-use std::{fs, io, mem};
+use std::{io, mem};
 use std::fs::File;
 use std::io::{BufRead, LineWriter, Write};
 
@@ -6,8 +6,6 @@ use chrono::NaiveDateTime;
 use clap::Parser;
 
 use cli::Cli;
-use preparations::{get_valid_dir, get_valid_glob_filter, get_valid_paths, get_valid_re_time, get_valid_strftime};
-use strings_similarity::get_common_substring;
 
 mod cli;
 mod strings_similarity;
@@ -16,9 +14,9 @@ mod preparations;
 fn main() {
     let cli = Cli::parse();
 
-    let strftime = get_valid_strftime(&cli.strftime);
+    let strftime = preparations::get_valid_strftime(&cli.strftime);
 
-    let re_time = match get_valid_re_time(&cli.re_time){
+    let re_time = match preparations::get_valid_re_time(&cli.re_time) {
         Ok(re) => re,
         Err(err) => {
             println!("Can't compile regexps for time parsing: {err}");
@@ -26,7 +24,7 @@ fn main() {
         }
     };
 
-    let logs_dir = match get_valid_dir(&cli.dir) {
+    let logs_dir = match preparations::get_valid_dir(&cli.dir) {
         Ok(dir) => dir,
         Err(err) => {
             println!("{err}");
@@ -34,7 +32,7 @@ fn main() {
         }
     };
 
-    let filter = match get_valid_glob_filter(&cli.filter) {
+    let filter = match preparations::get_valid_glob_filter(&cli.filter) {
         Ok(glob_pattern) => glob_pattern,
         Err(_) => {
             println!("Can't compile glob pattern");
@@ -42,7 +40,7 @@ fn main() {
         }
     };
 
-    let logs_paths = match get_valid_paths(&logs_dir, &filter) {
+    let logs_paths = match preparations::get_valid_paths(&logs_dir, &filter) {
         Ok(paths) => paths,
         Err(err) => {
             println!("{err}");
@@ -50,40 +48,13 @@ fn main() {
         }
     };
 
-    let file_name = match cli.output {
-        None => {
-            let first_path = match logs_paths.iter().peekable().next() {
-                None => return,
-                Some(path) => path,
-            };
-
-            logs_paths
-                .iter()
-                .map(|path| path.file_name().unwrap().to_str().unwrap())
-                .fold(
-                    first_path
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap()
-                        .to_string(),
-                    |path1, path2| get_common_substring(path1.as_str(), path2),
-                )
-                .trim_start_matches('_')
-                .to_string()
-        }
-        Some(file_name) => {
-            if file_name.starts_with("./") || file_name.starts_with("/") {
-                println!("Don't use paths for output name");
-                return;
-            };
-            file_name
+    let file_name = match preparations::get_valid_output_name(&cli.output, &logs_paths) {
+        Ok(name) => name,
+        Err(err) => {
+            println!("{err}");
+            return;
         }
     };
-    dbg!(&file_name);
-    if !logs_dir.join("merged").exists() {
-        fs::create_dir(logs_dir.join("merged")).expect("Can't create 'merged' dir");
-    }
 
     let mut logs_iterators = vec![];
     for path in logs_paths.iter() {
