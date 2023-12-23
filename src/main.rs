@@ -1,12 +1,12 @@
 use std::{fs, io, mem};
 use std::fs::File;
 use std::io::{BufRead, LineWriter, Write};
-use std::path::PathBuf;
 
 use chrono::NaiveDateTime;
 use clap::Parser;
 
 use cli::Cli;
+use preparations::{get_valid_dir, get_valid_glob_filter, get_valid_re_time, get_valid_strftime};
 use strings_similarity::get_common_substring;
 
 use crate::preparations::{get_valid_dir, get_valid_glob_filter, get_valid_re_time, get_valid_strftime};
@@ -20,7 +20,13 @@ fn main() {
 
     let strftime = get_valid_strftime(&cli.strftime);
 
-    let re_time = get_valid_re_time(&cli.re_time);
+    let re_time = match get_valid_re_time(&cli.re_time){
+        Ok(re) => re,
+        Err(err) => {
+            println!("Can't compile regexps for time parsing: {err}");
+            return;
+        }
+    };
 
     let logs_dir = match get_valid_dir(&cli.dir) {
         Ok(dir) => dir,

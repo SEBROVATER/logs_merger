@@ -8,7 +8,7 @@ pub fn get_valid_strftime(raw_strftime: &Option<String>) -> String {
     match raw_strftime {
         Some(strftime) => {
             println!("Provided strftime: {strftime}");
-            strftime.to_string()
+            strftime.clone()
         }
         None => {
             println!("Use strftime from last completed run");
@@ -17,16 +17,15 @@ pub fn get_valid_strftime(raw_strftime: &Option<String>) -> String {
     }
 }
 
-pub fn get_valid_re_time(raw_re_time: &Option<String>) -> Regex {
+pub fn get_valid_re_time(raw_re_time: &Option<String>) -> Result<Regex, regex::Error> {
     match raw_re_time {
         Some(re_time_str) => {
             println!("Provided time regexp: {re_time_str}");
             Regex::new(escape(&re_time_str).as_str())
-                .expect("Your previous regex can't be compiled")
         }
         None => {
-            println!("Use time regexp from last completed run");
-            Regex::new(r"^\[[\d\- :,]+\]").expect("Your regex can't be compiled")
+            println!("Use time regexp from config");
+            Regex::new(r"^\[[\d\- :,]+\]")
         }
     }
 }
