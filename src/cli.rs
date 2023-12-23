@@ -1,5 +1,7 @@
-use clap::Parser;
+use clap::{Parser, ArgAction};
 use std::path::PathBuf;
+
+
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -33,4 +35,14 @@ pub struct Cli {
         default_value = "*"
     )]
     pub filter: String,
+
+    /// Verbose how script works
+    #[arg(
+    short,
+    long,
+    action = ArgAction::SetTrue,
+    // required = false,
+    // default_value = false,
+    )]
+    pub verbose: bool,
 }
