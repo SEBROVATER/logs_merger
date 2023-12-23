@@ -6,7 +6,7 @@ use clap::Parser;
 
 use cli::Cli;
 
-use crate::iteration::prepare_currents;
+use crate::iteration::{prepare_currents, write_to_file};
 
 mod cli;
 mod preparations;
@@ -57,64 +57,7 @@ fn main() {
             return;
         }
     };
-
-    let mut logs_iterators = iteration::get_logs_iterators(&logs_paths, &re_time).expect("Can't prepare iterators over files");
-
-    let (mut current_logs, mut current_timestamps) = match prepare_currents(&mut logs_iterators, &re_time, &strftime) {
-        Ok(currents) => currents,
-        Err(err) => {
-            eprintln!("{err}");
-            return;
-        }
-    };
-
     let output_path = logs_dir.join(file_name);
-    let file = File::create(output_path).expect("Can't create file to write");
-    let mut file = LineWriter::new(file);
 
-
-    while !logs_iterators.is_empty() {
-
-        let max_val = current_timestamps.iter().min().unwrap();
-        let max_i = current_timestamps
-            .iter()
-            .position(|s| s == max_val)
-            .unwrap();
-
-        let max_log = current_logs.get(max_i).unwrap();
-        println!("{:?}", &max_log);
-        for log in max_log.iter() {
-            if log.is_empty() {
-                continue;
-            };
-            file.write_all(log.as_bytes())
-                .expect("Can't write line to file");
-            file.write_all(b"\n").expect("Can't write line to file");
-        }
-
-        let it = logs_iterators.get_mut(max_i).unwrap();
-        match it.next() {
-            None => {
-                current_logs.remove(max_i);
-                current_timestamps.remove(max_i);
-                let _ = logs_iterators.remove(max_i);
-            }
-            Some(log) => {
-                let timestamp = NaiveDateTime::parse_from_str(
-                    re_time.find(&log.first().unwrap()).unwrap().as_str(),
-                    &strftime,
-                )
-                    .unwrap()
-                    .timestamp_millis();
-                current_timestamps[max_i] = timestamp;
-                current_logs[max_i] = log;
-            }
-        }
-    }
+    write_to_file(&output_path, &logs_paths, &re_time, &strftime);
 }
-
-// fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-//     where P: AsRef<Path>, {
-//     let file = File::open(filename)?;
-//     Ok(io::BufReader::new(file).lines())
-// }
