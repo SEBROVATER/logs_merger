@@ -58,7 +58,8 @@ pub fn get_valid_paths(valid_dir: &PathBuf, filter: &Pattern) -> Result<Vec<Path
                 .map_err(|err| format!("Error reading entry: {}", err))
                 .ok()?;
             let path = entry.path();
-            if path.is_dir() {
+            if path.is_dir() || path.file_name().unwrap().to_str().unwrap().starts_with("merged_") {
+                // TODO: check existence of output name
                 None
             } else if filter.matches_path(&path) {
                 Some(Ok(path))
