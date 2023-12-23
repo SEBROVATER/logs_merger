@@ -103,8 +103,7 @@ pub fn get_valid_output_name(
             Ok(format!("merged_{}", common_prefix))
         }
         Some(file_name) => {
-            if is_valid_filename(file_name)
-            {
+            if is_valid_filename(file_name) {
                 Ok(file_name.to_owned())
             } else {
                 Err(String::from("Don't use paths for output name"))

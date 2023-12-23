@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use clap::Parser;
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -26,11 +26,11 @@ pub struct Cli {
 
     /// Regular expression to filter log files in dir
     #[arg(
-    short,
-    long,
-    required = false,
-    value_name = "GLOB",
-    default_value = "*"
+        short,
+        long,
+        required = false,
+        value_name = "GLOB",
+        default_value = "*"
     )]
     pub filter: String,
 }

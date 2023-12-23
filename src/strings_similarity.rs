@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 // Taken from: https://github.com/DimaKudosh/difflib/blob/master/src/sequencematcher.rs
 pub fn get_common_substring(str1: &str, str2: &str) -> String {
     let first_sequence: Vec<char> = str1.chars().collect();

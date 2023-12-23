@@ -1,6 +1,6 @@
-use std::{io, mem};
 use std::fs::File;
 use std::io::{BufRead, LineWriter, Write};
+use std::{io, mem};
 
 use chrono::NaiveDateTime;
 use clap::Parser;
@@ -8,8 +8,8 @@ use clap::Parser;
 use cli::Cli;
 
 mod cli;
-mod strings_similarity;
 mod preparations;
+mod strings_similarity;
 
 fn main() {
     let cli = Cli::parse();
@@ -113,8 +113,8 @@ fn main() {
             re_time.find(&log.first().unwrap()).unwrap().as_str(),
             &strftime,
         )
-            .unwrap()
-            .timestamp_millis();
+        .unwrap()
+        .timestamp_millis();
         current_timestamps.push(timestamp);
         current_logs.push(log);
     }
@@ -153,8 +153,8 @@ fn main() {
                     re_time.find(&log.first().unwrap()).unwrap().as_str(),
                     &strftime,
                 )
-                    .unwrap()
-                    .timestamp_millis();
+                .unwrap()
+                .timestamp_millis();
                 current_timestamps[max_i] = timestamp;
                 current_logs[max_i] = log;
             }
