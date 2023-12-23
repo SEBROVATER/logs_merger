@@ -39,28 +39,32 @@ pub fn get_valid_dir(raw_dir: &PathBuf) -> Result<PathBuf, String> {
         return Err(String::from("Path must be a folder"));
     }
 
-    match fs::canonicalize(raw_dir) {
-        Ok(dir) => Ok(dir),
-        Err(err) => Err(err.to_string())
-    }
+    fs::canonicalize(raw_dir).map_err(|err| err.to_string())
 }
+
 
 pub fn get_valid_glob_filter(raw_glob: &String) -> Result<Pattern, PatternError> {
     Pattern::new(raw_glob)
 }
 
-// pub fn get_valid_paths(valid_dir: &PathBuf, filter: &Pattern) -> Result<Vec<PathBuf>, String> {
-//     let entries = fs::read_dir(&valid_dir)
-//         .map_err(|err| format!("Error iterating directory: {}", err))?;
-//
-//     let paths: Vec<PathBuf> = entries
-//         .map(|entry| {
-//             entry.map_err(|err| return Err(format!("Error reading entry: {}", err)))
-//         })
-//         .map(| entry | entry.path())
-//         .filter(|path| !path.is_dir())
-//         .filter(|path| filter.matches_path(&path))
-//     .collect();
-//     Ok(paths)
-//
-// }
+pub fn get_valid_paths(valid_dir: &PathBuf, filter: &Pattern) -> Result<Vec<PathBuf>, String> {
+    let entries = fs::read_dir(&valid_dir)
+        .map_err(|err| format!("Error iterating directory: {}", err))?;
+
+    let paths: Result<Vec<PathBuf>, String> = entries
+        .filter_map(|entry_result| {
+            let entry = entry_result.map_err(|err| format!("Error reading entry: {}", err)).ok()?;
+            let path = entry.path();
+            if path.is_dir() {
+                None
+            } else if filter.matches_path(&path) {
+                Some(Ok(path))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    paths
+}
+

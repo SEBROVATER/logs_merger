@@ -6,10 +6,8 @@ use chrono::NaiveDateTime;
 use clap::Parser;
 
 use cli::Cli;
-use preparations::{get_valid_dir, get_valid_glob_filter, get_valid_re_time, get_valid_strftime};
+use preparations::{get_valid_dir, get_valid_glob_filter, get_valid_paths, get_valid_re_time, get_valid_strftime};
 use strings_similarity::get_common_substring;
-
-use crate::preparations::{get_valid_dir, get_valid_glob_filter, get_valid_re_time, get_valid_strftime};
 
 mod cli;
 mod strings_similarity;
@@ -44,16 +42,13 @@ fn main() {
         }
     };
 
-    let logs_paths: Vec<PathBuf> = fs::read_dir(&logs_dir)
-        .expect("Can't iterate over dir")
-        .filter(|path| match path {
-            Err(_) => {
-                panic!("Can't iterate over dir");
-            }
-            Ok(path) => !&path.path().is_dir() && filter.matches_path(&path.path()),
-        })
-        .map(|dir_entry| dir_entry.unwrap().path())
-        .collect();
+    let logs_paths = match get_valid_paths(&logs_dir, &filter) {
+        Ok(paths) => paths,
+        Err(err) => {
+            println!("{err}");
+            return;
+        }
+    };
 
     let file_name = match cli.output {
         None => {
