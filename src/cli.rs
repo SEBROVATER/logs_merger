@@ -1,12 +1,27 @@
-use clap::{Parser, ArgAction};
 use std::path::PathBuf;
 
-
+use clap::ArgAction::Count;
+use clap::{Args, Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(author, version, about)]
-#[command(long_about = "Merges log fields by its timestamps")]
+#[command(author, version, about, long_about = None, propagate_version = true)]
 pub struct Cli {
+    #[command(subcommand)]
+    pub command: Commands,
+
+
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    ///
+    Merge(MergeCli),
+}
+
+#[derive(Args)]
+#[command(long_about = "Merges log files by its timestamps. \
+By default works with .txt and .log extensions")]
+pub struct MergeCli {
     /// Directory with log files
     pub dir: PathBuf,
 
@@ -14,9 +29,9 @@ pub struct Cli {
     #[arg(long, short, value_name = "OUTPUT")]
     pub output: Option<String>,
 
-    /// Regular expression to find timestamps and detect multiline logs
+    /// Regular expression to find timestamps and detect start of logs
     ///
-    /// Example: "^\[\d{1,4}[\d/:, ]+\d{1,3}\]"
+    /// Example: r"^\[\d{1,4}[\d/:, ]+\d{1,3}\]"
     #[arg(long, value_name = "REGEXP")]
     pub re_time: Option<String>,
 
@@ -27,22 +42,24 @@ pub struct Cli {
     pub strftime: Option<String>,
 
     /// Regular expression to filter log files in dir
+    ///
+    /// Can be used to filter specific extensions,
+    /// for example "*.log"
     #[arg(
-        short,
         long,
-        required = false,
+        // required = false,
         value_name = "GLOB",
         default_value = "*"
     )]
-    pub filter: String,
+    pub glob: String,
 
-    /// Verbose how script works
+    /// Set verbosity level
     #[arg(
     short,
     long,
-    action = ArgAction::SetTrue,
-    // required = false,
-    // default_value = false,
+    action = Count,
+    global = true,
     )]
-    pub verbose: bool,
+    pub verbose: u8,
+
 }
