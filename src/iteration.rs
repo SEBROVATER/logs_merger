@@ -4,6 +4,7 @@ use std::mem;
 use std::path::PathBuf;
 
 use chrono::NaiveDateTime;
+use log::{error, info, warn};
 use regex::Regex;
 
 pub fn get_logs_iterators<'a>(
@@ -94,7 +95,7 @@ pub fn write_to_file(
         match prepare_currents(&mut logs_iterators, &re_time, &strftime) {
             Ok(currents) => currents,
             Err(err) => {
-                eprintln!("{err}");
+                error!("{err}");
                 return;
             }
         };
@@ -110,7 +111,7 @@ pub fn write_to_file(
             .unwrap();
 
         let max_log = current_logs.get(max_i).unwrap();
-        println!("{:?}", &max_log);
+        info!("{:?}", &max_log.join("\n"));
         for log in max_log.iter() {
             if log.is_empty() {
                 continue;

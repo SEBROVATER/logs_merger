@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use glob::{Pattern, PatternError};
+use log::info;
 use regex::{escape, Regex};
 
 use crate::strings_similarity::get_common_substring;
@@ -9,11 +10,11 @@ use crate::strings_similarity::get_common_substring;
 pub fn get_valid_strftime(raw_strftime: &Option<String>) -> String {
     match raw_strftime {
         Some(strftime) => {
-            println!("Provided strftime: {strftime}");
+            info!("Provided strftime: {strftime}");
             strftime.clone()
         }
         None => {
-            println!("Use strftime from last completed run");
+            info!("Use strftime from last completed run");
             String::from("[%F %T,%3f]")
         }
     }
@@ -22,11 +23,11 @@ pub fn get_valid_strftime(raw_strftime: &Option<String>) -> String {
 pub fn get_valid_re_time(raw_re_time: &Option<String>) -> Result<Regex, regex::Error> {
     match raw_re_time {
         Some(re_time_str) => {
-            println!("Provided time regexp: {re_time_str}");
+            info!("Provided time regexp: {re_time_str}");
             Regex::new(escape(&re_time_str).as_str())
         }
         None => {
-            println!("Use time regexp from config");
+            info!("Use time regexp from config");
             Regex::new(r"^\[[\d\- :,]+\]")
         }
     }
