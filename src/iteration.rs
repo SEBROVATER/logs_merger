@@ -17,10 +17,10 @@ pub fn get_logs_iterators<'a>(
         let file = File::open(&path).map_err(|err| format!("Can't open file: {err}"))?;
         let lines = BufReader::new(file).lines();
 
-        let logs = lines
+        let mut logs = lines
             .chain(Some(Ok(String::from("[end]"))))
             .scan(Vec::new(), |v, line| {
-                let line = line.expect("Can't open one of files");
+                let line = line.unwrap();
 
                 match v.last() {
                     None => {
@@ -41,9 +41,13 @@ pub fn get_logs_iterators<'a>(
                     }
                 }
             })
-            .flatten();
+            .flatten().peekable();
 
-        logs_iterators.push(logs);
+        if let Some(_log) = logs.peek() {
+            logs_iterators.push(logs);
+        } else {
+            warn!("Can't find logs in file {:?}", &path)
+        }
     }
 
     Ok(logs_iterators)
@@ -71,7 +75,7 @@ pub fn prepare_currents(
                     return Err("Can't find 'time' in first line of log".to_string());
                 }
             } else {
-                eprintln!("Can't find logs in some file. Skip it");
+                warn!("Can't find logs in some file. Skip it");
             }
         } else {
             // Handle the case where there are no more logs in the iterator
@@ -124,9 +128,9 @@ pub fn write_to_file(
         let it = logs_iterators.get_mut(max_i).unwrap();
         match it.next() {
             None => {
+                let _ = logs_iterators.remove(max_i);
                 current_logs.remove(max_i);
                 current_timestamps.remove(max_i);
-                let _ = logs_iterators.remove(max_i);
             }
             Some(log) => {
                 let timestamp = NaiveDateTime::parse_from_str(
