@@ -69,7 +69,8 @@ pub fn prepare_currents(
                 if let Some(time_match) = re_time.find(first_line) {
                     let timestamp = NaiveDateTime::parse_from_str(&time_match.as_str(), strftime)
                         .map_err(|err| format!("Failed to parse timestamp: {}", err))?
-                        .and_utc().timestamp_millis();
+                        .and_utc()
+                        .timestamp_millis();
 
                     current_timestamps.push(timestamp);
                     current_logs.push(log);
@@ -140,7 +141,8 @@ pub fn write_to_file(
                     &strftime,
                 )
                 .unwrap()
-                .and_utc().timestamp_millis();
+                .and_utc()
+                .timestamp_millis();
                 current_timestamps[max_i] = timestamp;
                 current_logs[max_i] = log;
             }
@@ -149,9 +151,9 @@ pub fn write_to_file(
 }
 #[cfg(test)]
 mod tests {
-    use std::io::Read;
-    use crate::logger::set_logger;
     use super::*;
+    use crate::logger::set_logger;
+    use std::io::Read;
     #[test]
     fn test_multi_single_empty() {
         set_logger(1);
@@ -171,12 +173,19 @@ mod tests {
         let logs_paths: Vec<PathBuf> = vec![path1, path2, path3];
         let output_path = tmpdir.path().join("merged.log");
 
-        write_to_file(&output_path, &logs_paths, &Regex::new(r"^\[\d+]").unwrap(), &String::from("[%s]"));
+        write_to_file(
+            &output_path,
+            &logs_paths,
+            &Regex::new(r"^\[\d+]").unwrap(),
+            &String::from("[%s]"),
+        );
 
         let mut output_string = String::new();
-        File::open(&output_path).unwrap().read_to_string(&mut output_string).unwrap();
+        File::open(&output_path)
+            .unwrap()
+            .read_to_string(&mut output_string)
+            .unwrap();
 
         assert_eq!(&output_string, "[01] log1\n[02] log2\n[03] log3\n");
     }
-
 }
