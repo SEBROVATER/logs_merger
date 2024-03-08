@@ -5,7 +5,7 @@ use crate::iteration::write_to_file;
 use crate::logger::set_logger;
 use crate::preparations;
 
-pub fn merge(cli: MergeCli){
+pub fn merge(cli: MergeCli) {
     set_logger(cli.verbose);
     let strftime = preparations::get_valid_strftime(&cli.strftime);
 

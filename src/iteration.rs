@@ -41,7 +41,8 @@ pub fn get_logs_iterators<'a>(
                     }
                 }
             })
-            .flatten().peekable();
+            .flatten()
+            .peekable();
 
         if let Some(_log) = logs.peek() {
             logs_iterators.push(logs);

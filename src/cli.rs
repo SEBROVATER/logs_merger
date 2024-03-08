@@ -8,8 +8,6 @@ use clap::{Args, Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
-
-
 }
 
 #[derive(Subcommand)]
@@ -61,5 +59,4 @@ pub struct MergeCli {
     global = true,
     )]
     pub verbose: u8,
-
 }
