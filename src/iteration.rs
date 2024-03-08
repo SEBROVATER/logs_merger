@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use chrono::NaiveDateTime;
 use log::{error, info, warn};
 use regex::Regex;
+use tempfile::tempdir;
 
 pub fn get_logs_iterators<'a>(
     logs_paths: impl IntoIterator<Item = &'a PathBuf>,
@@ -145,4 +146,37 @@ pub fn write_to_file(
             }
         }
     }
+}
+#[cfg(test)]
+mod tests {
+    use std::io::Read;
+    use crate::logger::set_logger;
+    use super::*;
+    #[test]
+    fn test_multi_single_empty() {
+        set_logger(1);
+        let tmpdir = tempdir().unwrap();
+        // multiline
+        let path1 = tmpdir.path().join("file1.log");
+        let mut file1 = File::create(&path1).unwrap();
+        file1.write_all(b"[01] log1\n[03] log3").unwrap();
+        // single line
+        let path2 = tmpdir.path().join("file2.log");
+        let mut file2 = File::create(&path2).unwrap();
+        file2.write_all(b"[02] log2").unwrap();
+        // empty file
+        let path3 = tmpdir.path().join("file3.log");
+        File::create(&path3).unwrap();
+
+        let logs_paths: Vec<PathBuf> = vec![path1, path2, path3];
+        let output_path = tmpdir.path().join("merged.log");
+
+        write_to_file(&output_path, &logs_paths, &Regex::new(r"^\[\d+]").unwrap(), &String::from("[%s]"));
+
+        let mut output_string = String::new();
+        File::open(&output_path).unwrap().read_to_string(&mut output_string).unwrap();
+
+        assert_eq!(&output_string, "[01] log1\n[02] log2\n[03] log3\n");
+    }
+
 }
