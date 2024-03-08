@@ -68,7 +68,7 @@ pub fn prepare_currents(
                 if let Some(time_match) = re_time.find(first_line) {
                     let timestamp = NaiveDateTime::parse_from_str(&time_match.as_str(), strftime)
                         .map_err(|err| format!("Failed to parse timestamp: {}", err))?
-                        .timestamp_millis();
+                        .and_utc().timestamp_millis();
 
                     current_timestamps.push(timestamp);
                     current_logs.push(log);
@@ -139,7 +139,7 @@ pub fn write_to_file(
                     &strftime,
                 )
                 .unwrap()
-                .timestamp_millis();
+                .and_utc().timestamp_millis();
                 current_timestamps[max_i] = timestamp;
                 current_logs[max_i] = log;
             }
